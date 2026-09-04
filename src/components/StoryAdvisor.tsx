@@ -38,29 +38,11 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.8 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
   }, [isOpen, messages.length]);
-
-  const listModels = async () => {
-    try {
-      setLoading(true);
-      // We have to use a raw fetch because the SDK's listModels is sometimes inconsistent in different versions
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-      const data = await response.json();
-      const modelNames = data.models?.map((m: any) => m.name.replace('models/', '')) || [];
-      const errorStr = modelNames.length > 0 
-        ? `AVAILABLE MODELS: ${modelNames.join(', ')}` 
-        : `NO MODELS FOUND. DATA: ${JSON.stringify(data)}`;
-      setMessages([...messages, { role: "model", text: errorStr }]);
-    } catch (err: any) {
-      setMessages([...messages, { role: "model", text: `LIST ERROR: ${err.message}` }]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     scrollToBottom();
