@@ -38,7 +38,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.9 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.0 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -89,14 +89,12 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
 
       // Fallback logic: Actually TEST models until one responds
       const modelConfigs = [
-        { model: "gemini-1.5-flash" },
-        { model: "gemini-1.5-flash-8b" },
-        { model: "gemini-1.5-flash-latest" },
-        { model: "gemini-1.5-pro" },
-        { model: "gemini-1.0-pro" },
-        { model: "gemini-pro" },
-        { model: "gemini-1.5-flash", apiVersion: "v1" },
-        { model: "gemini-1.5-flash-8b", apiVersion: "v1" }
+        { model: "models/gemini-1.5-flash", apiVersion: "v1beta" },
+        { model: "models/gemini-1.5-flash-8b", apiVersion: "v1beta" },
+        { model: "models/gemini-1.5-flash-latest", apiVersion: "v1beta" },
+        { model: "models/gemini-1.5-pro", apiVersion: "v1beta" },
+        { model: "models/gemini-1.5-flash", apiVersion: "v1" },
+        { model: "models/gemini-1.0-pro", apiVersion: "v1" }
       ];
 
       let model = null;
