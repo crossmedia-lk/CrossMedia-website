@@ -33,7 +33,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: "Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling.\n\nWhat does your organisation do, and who does it serve?"
+          text: "Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.2)\n\nWhat does your organisation do, and who does it serve?"
         }
       ]);
     }
