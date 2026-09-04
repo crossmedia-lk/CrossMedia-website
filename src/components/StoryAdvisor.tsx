@@ -38,7 +38,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.5 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.6 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -87,14 +87,14 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
         IMPORTANT: When you are ready to provide the final assessment, wrap it in a clear delimiter or just provide it as the final message. The UI will detect the heading "YOUR STORY HAS SOMETHING TO SAY." to show the "TALK TO CROSSMEDIA" button.
       `;
 
-      // Direct fallback: try standard names. Force v1/v1beta alternates.
+      // v1.1.6: Final Discovery Loop - Try every possible model variant
       const modelConfigs = [
-        { name: "gemini-1.5-flash", version: "v1" },
-        { name: "models/gemini-1.5-flash", version: "v1" },
         { name: "gemini-1.5-flash", version: "v1beta" },
+        { name: "gemini-1.5-flash-8b", version: "v1beta" },
+        { name: "gemini-1.5-pro", version: "v1beta" },
+        { name: "gemini-1.5-flash-latest", version: "v1beta" },
+        { name: "gemini-1.5-flash", version: "v1" },
         { name: "gemini-1.5-pro", version: "v1" },
-        { name: "gemini-1.5-flash-8b", version: "v1" },
-        { name: "gemini-1.0-pro", version: "v1" },
         { name: "gemini-pro", version: "v1" }
       ];
       let modelResponse = "";
