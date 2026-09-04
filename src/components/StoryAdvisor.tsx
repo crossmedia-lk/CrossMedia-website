@@ -35,7 +35,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.6 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.7 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -84,9 +84,29 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
         IMPORTANT: When you are ready to provide the final assessment, wrap it in a clear delimiter or just provide it as the final message. The UI will detect the heading "YOUR STORY HAS SOMETHING TO SAY." to show the "TALK TO CROSSMEDIA" button.
       `;
 
-      const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash",
-      }, { apiVersion: "v1" });
+      // Fallback logic to find a working model in the user's region
+      const modelConfigs = [
+        { model: "gemini-1.5-flash" },
+        { model: "gemini-1.5-flash", apiVersion: "v1beta" },
+        { model: "gemini-1.5-flash-latest" },
+        { model: "gemini-1.5-pro" },
+        { model: "gemini-pro" }
+      ];
+
+      let model = null;
+      let lastErr = null;
+
+      for (const config of modelConfigs) {
+        try {
+          const testModel = genAI.getGenerativeModel({ model: config.model }, config.apiVersion ? { apiVersion: config.apiVersion } : undefined);
+          model = testModel;
+          break; 
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      if (!model) throw lastErr || new Error("Could not initialize any Gemini model.");
 
       // Gemini history usually needs to alternate User/Model and start with User.
       // Since our first message is a Model greeting, we can either:
