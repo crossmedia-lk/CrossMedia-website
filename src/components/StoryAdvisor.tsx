@@ -216,16 +216,6 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
                         : 'bg-primary-orange/20 border border-primary-orange/20 text-white'
                     }`}>
                       {msg.text}
-                      {idx === 0 && (
-                        <div className="mt-4 pt-4 border-t border-white/10">
-                          <button 
-                            onClick={listModels}
-                            className="text-[10px] font-black tracking-[0.2em] text-primary-orange uppercase hover:opacity-70 transition-opacity flex items-center gap-2"
-                          >
-                            [ SCAN AVAILABLE MODELS ]
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </motion.div>
