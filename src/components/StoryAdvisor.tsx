@@ -38,7 +38,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.4 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.5 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -87,8 +87,16 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
         IMPORTANT: When you are ready to provide the final assessment, wrap it in a clear delimiter or just provide it as the final message. The UI will detect the heading "YOUR STORY HAS SOMETHING TO SAY." to show the "TALK TO CROSSMEDIA" button.
       `;
 
-      // Direct fallback: try standard names. Move sendMessage INSIDE the loop to handle lazy 404s.
-      const modelNames = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b", "gemini-1.0-pro"];
+      // Direct fallback: try standard names. Force v1/v1beta alternates.
+      const modelConfigs = [
+        { name: "gemini-1.5-flash", version: "v1" },
+        { name: "models/gemini-1.5-flash", version: "v1" },
+        { name: "gemini-1.5-flash", version: "v1beta" },
+        { name: "gemini-1.5-pro", version: "v1" },
+        { name: "gemini-1.5-flash-8b", version: "v1" },
+        { name: "gemini-1.0-pro", version: "v1" },
+        { name: "gemini-pro", version: "v1" }
+      ];
       let modelResponse = "";
       let lastErr = null;
 
@@ -99,9 +107,9 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
           parts: [{ text: m.text }],
         }));
 
-      for (const name of modelNames) {
+      for (const config of modelConfigs) {
         try {
-          const model = genAI.getGenerativeModel({ model: name });
+          const model = genAI.getGenerativeModel({ model: config.name }, { apiVersion: config.version as any });
           const chat = model.startChat({
             history,
             generationConfig: { temperature: 0.7 },
@@ -115,7 +123,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
           modelResponse = result.response.text();
           if (modelResponse) break; // Success!
         } catch (err) {
-          console.warn(`Model ${name} failed, trying next...`, err);
+          console.warn(`Model ${config.name} (${config.version}) failed:`, err);
           lastErr = err;
           continue; 
         }
