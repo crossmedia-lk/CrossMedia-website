@@ -35,7 +35,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.5 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.6 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -85,8 +85,8 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       `;
 
       const model = genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest",
-      });
+        model: "gemini-1.5-flash",
+      }, { apiVersion: "v1" });
 
       // Gemini history usually needs to alternate User/Model and start with User.
       // Since our first message is a Model greeting, we can either:
