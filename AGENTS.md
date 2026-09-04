@@ -5,3 +5,4 @@
 - **DO NOT** change any website copy (text, headings, descriptions) unless explicitly specified and asked for by the user.
 - Maintain the established "Cinematic Aurora" aesthetic and "LOCKED-ST13" status as the production baseline.
 - **DEPLOYMENT_ACTIVE**: Automated Firebase Hosting via GitHub Actions enabled (2026-09-04).
+- **SYSTEM_STATUS**: Full AI Story Advisor and Automated Email Enquiries active.
