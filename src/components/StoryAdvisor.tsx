@@ -35,7 +35,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.3 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.4 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -121,9 +121,10 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       if (modelResponse.includes("YOUR STORY HAS SOMETHING TO SAY.")) {
         setAssessment(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Advisor error:", err);
-      setMessages([...newMessages, { role: "model", text: "I'm sorry, I encountered an error. It's possible the AI service is temporarily unavailable or configuration is pending." }]);
+      const errorMessage = err.message || "Unknown error";
+      setMessages([...newMessages, { role: "model", text: `DIAGNOSTIC ERROR: ${errorMessage}` }]);
     } finally {
       setLoading(false);
     }
