@@ -84,18 +84,33 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
 
       const model = genAI.getGenerativeModel({ 
         model: "gemini-1.5-flash",
-        systemInstruction: systemInstruction
       });
 
-      // Format messages for Gemini
-      const chat = model.startChat({
-        history: messages.map(m => ({
+      // Gemini history usually needs to alternate User/Model and start with User.
+      // Since our first message is a Model greeting, we can either:
+      // 1. Omit the greeting from history (simplest)
+      // 2. Map it to something else
+      
+      const history = messages
+        .filter((_, i) => i > 0) // Skip the first model greeting for SDK compatibility
+        .map(m => ({
           role: m.role,
           parts: [{ text: m.text }],
-        })).slice(0, -1), // Don't include the last message we just added
+        }));
+
+      const chat = model.startChat({
+        history,
+        generationConfig: {
+          temperature: 0.7,
+        },
       });
 
-      const result = await chat.sendMessage(userMessage);
+      // Prepend the system instruction to the first real user message if it's the start
+      const prompt = messages.length <= 2 
+        ? `${systemInstruction}\n\nUser Information: ${userMessage}`
+        : userMessage;
+
+      const result = await chat.sendMessage(prompt);
       const modelResponse = result.response.text();
       
       setMessages([...newMessages, { role: "model", text: modelResponse }]);
