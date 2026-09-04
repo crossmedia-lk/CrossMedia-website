@@ -38,11 +38,29 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.6 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.7 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
   }, [isOpen, messages.length]);
+
+  const listModels = async () => {
+    try {
+      setLoading(true);
+      // We have to use a raw fetch because the SDK's listModels is sometimes inconsistent in different versions
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      const data = await response.json();
+      const modelNames = data.models?.map((m: any) => m.name.replace('models/', '')) || [];
+      const errorStr = modelNames.length > 0 
+        ? `AVAILABLE MODELS: ${modelNames.join(', ')}` 
+        : `NO MODELS FOUND. DATA: ${JSON.stringify(data)}`;
+      setMessages([...messages, { role: "model", text: errorStr }]);
+    } catch (err: any) {
+      setMessages([...messages, { role: "model", text: `LIST ERROR: ${err.message}` }]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -217,6 +235,16 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
                         : 'bg-primary-orange/20 border border-primary-orange/20 text-white'
                     }`}>
                       {msg.text}
+                      {idx === 0 && (
+                        <div className="mt-4 pt-4 border-t border-white/10">
+                          <button 
+                            onClick={listModels}
+                            className="text-[10px] font-black tracking-[0.2em] text-primary-orange uppercase hover:opacity-70 transition-opacity flex items-center gap-2"
+                          >
+                            [ SCAN AVAILABLE MODELS ]
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
