@@ -67,44 +67,19 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     setStatus("Connecting...");
     
     try {
-      // Create timeouts for both operations
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s overall timeout
-
-      // 1. Fire Firestore in the background - DO NOT AWAIT IT
-      // This ensures that even if Firestore hangs, the user can still send the email
-      addDoc(collection(db, "enquiries"), {
+      setStatus("Sending...");
+      
+      // Save directly to Firestore
+      await addDoc(collection(db, "enquiries"), {
         ...formData,
         createdAt: serverTimestamp(),
-      }).catch(err => {
-        console.warn("Firestore backup failed:", err);
+        source: "website_enquiry_form"
       });
-
-      setStatus("Sending...");
-
-      // 2. Await ONLY the email promise
-      const response = await fetch("/api/enquire", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-        signal: controller.signal,
-      });
-
-      const data = await response.json();
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to send email notification.");
-      }
       
       setSubmitted(true);
     } catch (err: any) {
       console.error("Error submitting enquiry:", err);
-      if (err.name === 'AbortError') {
-        setError("The request timed out. Please check your internet connection and try again.");
-      } else {
-        setError(err.message || "Something went wrong while sending your enquiry. Please try again.");
-      }
+      setError("I'm sorry, I encountered an error while saving your enquiry. Please try again or contact us directly at crossmedia.ask@gmail.com");
     } finally {
       setLoading(false);
       setStatus(null);
