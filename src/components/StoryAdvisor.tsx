@@ -4,9 +4,12 @@ import { X, Send, Loader2, Sparkles, User, MessageSquare } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize Gemini client-side for static hosting support
-const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const rawApiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const apiKey = rawApiKey.trim();
 const genAI = new GoogleGenerativeAI(apiKey);
 const IS_KEY_PRESENT = apiKey.length > 5;
+const KEY_PREFIX = apiKey.substring(0, 4);
+const KEY_SUFFIX = apiKey.substring(apiKey.length - 4);
 
 interface Message {
   role: "user" | "model";
@@ -35,7 +38,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.8 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.9 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -86,11 +89,14 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
 
       // Fallback logic: Actually TEST models until one responds
       const modelConfigs = [
+        { model: "gemini-1.5-flash" },
+        { model: "gemini-1.5-flash-8b" },
+        { model: "gemini-1.5-flash-latest" },
+        { model: "gemini-1.5-pro" },
+        { model: "gemini-1.0-pro" },
+        { model: "gemini-pro" },
         { model: "gemini-1.5-flash", apiVersion: "v1" },
-        { model: "gemini-1.5-flash-latest", apiVersion: "v1" },
-        { model: "gemini-1.5-pro", apiVersion: "v1" },
-        { model: "gemini-1.0-pro", apiVersion: "v1" },
-        { model: "gemini-1.5-flash", apiVersion: "v1beta" }
+        { model: "gemini-1.5-flash-8b", apiVersion: "v1" }
       ];
 
       let model = null;
