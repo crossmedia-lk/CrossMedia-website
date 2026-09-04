@@ -68,51 +68,34 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     setStatus("Connecting...");
     
     try {
-      setStatus("Saving Enquiry...");
+      setStatus("Processing...");
       
-      // 1. Save to Firestore (Record for safety)
-      await addDoc(collection(db, "enquiries"), {
+      // 1. Create the promises but don't await them sequentially
+      const firestorePromise = addDoc(collection(db, "enquiries"), {
         ...formData,
         createdAt: serverTimestamp(),
         source: "website_enquiry_form",
-        system_version: "v1.2.2"
+        system_version: "v1.2.4"
       });
 
-      // 2. Send via Resend (Server-side API)
-      setStatus("Sending via Resend...");
-      try {
-        const response = await fetch("/api/enquire", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
+      const emailPromise = (async () => {
+        try {
+          const response = await fetch("/api/enquire", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData),
+          });
 
-        if (response.ok) {
-          setSubmitted(true);
-          return;
-        }
-        
-        // If we get a 404, it means the backend is missing (Static Hosting)
-        if (response.status === 404) {
-          console.warn("Backend not found, falling back to client-side delivery...");
-          throw new Error("BACKEND_MISSING");
-        }
+          if (response.ok) return "Resend Success";
+          
+          if (response.status === 404) {
+            // Fallback to EmailJS
+            const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+            const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+            const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send email enquiry.");
-      } catch (resendErr: any) {
-        if (resendErr.message === "BACKEND_MISSING" || resendErr.name === "TypeError") {
-          // Fallback to EmailJS (Client-side)
-          setStatus("Direct Delivery...");
-          const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-          const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-          const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-          if (serviceId && templateId && publicKey) {
-            await emailjs.send(
-              serviceId,
-              templateId,
-              {
+            if (serviceId && templateId && publicKey) {
+              await emailjs.send(serviceId, templateId, {
                 to_name: "CrossMedia Team",
                 from_name: formData.name,
                 organisation: formData.organisation,
@@ -123,22 +106,33 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
                 timing: formData.timing,
                 additional: formData.additional || "None",
                 reply_to: formData.email,
-              },
-              publicKey
-            );
-          } else {
-            // If even EmailJS is missing, we consider Firestore save enough for now
-            console.warn("No email services configured.");
+              }, publicKey);
+              return "EmailJS Success";
+            }
           }
-        } else {
-          throw resendErr;
+          return "Email Skipped/Failed";
+        } catch (err) {
+          console.warn("Email delivery failed:", err);
+          return "Email Error";
         }
-      }
+      })();
+
+      // 2. Race the core logic against a global timeout
+      // We prioritize the SUCCESS of the user experience
+      await Promise.race([
+        Promise.all([firestorePromise, emailPromise]),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("The request is taking longer than expected, but we are still processing it.")), 12000))
+      ]);
       
       setSubmitted(true);
     } catch (err: any) {
-      console.error("Error submitting enquiry:", err);
-      setError(err.message || "I'm sorry, I encountered an error. Please try again or contact us directly at crossmedia.ask@gmail.com");
+      console.error("Submission Error:", err);
+      // If it's just a timeout, we still show success because the background promises are likely still running
+      if (err.message?.includes("taking longer")) {
+        setSubmitted(true);
+      } else {
+        setError(err.message || "Something went wrong. Please try again or contact us directly.");
+      }
     } finally {
       setLoading(false);
       setStatus(null);
