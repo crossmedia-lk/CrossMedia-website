@@ -1,0 +1,24 @@
+{
+  "collections": {
+    "enquiries": {
+      "fields": {
+        "name": "string",
+        "email": "string",
+        "organisation": "string",
+        "message": "string",
+        "createdAt": "timestamp"
+      },
+      "description": "Form submissions from the enquiry popup"
+    },
+    "projects": {
+      "fields": {
+        "title": "string",
+        "category": "string",
+        "description": "string",
+        "image": "string",
+        "order": "number"
+      },
+      "description": "Portfolio items for the Our Work page"
+    }
+  }
+}

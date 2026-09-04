@@ -1,0 +1,329 @@
+
+import { motion, AnimatePresence } from "motion/react";
+import { useState, FormEvent, useEffect } from "react";
+import { X, CheckCircle2, Loader2 } from "lucide-react";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { db } from "../lib/firebase";
+
+interface EnquiryFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+  initialData?: {
+    organisation?: string;
+    about?: string;
+    objective?: string;
+  };
+}
+
+export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFormProps) {
+  const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState({
+    name: "",
+    organisation: initialData?.organisation || "",
+    email: "",
+    phone: "",
+    about: initialData?.about || "",
+    objective: initialData?.objective || "",
+    timing: "",
+    additional: "",
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        name: "",
+        organisation: initialData?.organisation || "",
+        email: "",
+        phone: "",
+        about: initialData?.about || "",
+        objective: initialData?.objective || "",
+        timing: "",
+        additional: "",
+      });
+      setSubmitted(false);
+      setError(null);
+    }
+  }, [isOpen, initialData]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    // Basic Validation
+    if (!formData.name || !formData.organisation || !formData.email || !formData.phone || !formData.about) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (formData.about.length < 20) {
+      setError("Please tell us a bit more about your organisation (at least 20 characters).");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setStatus("Connecting...");
+    
+    try {
+      // Create timeouts for both operations
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s overall timeout
+
+      // 1. Fire Firestore in the background - DO NOT AWAIT IT
+      // This ensures that even if Firestore hangs, the user can still send the email
+      addDoc(collection(db, "enquiries"), {
+        ...formData,
+        createdAt: serverTimestamp(),
+      }).catch(err => {
+        console.warn("Firestore backup failed:", err);
+      });
+
+      setStatus("Sending...");
+
+      // 2. Await ONLY the email promise
+      const response = await fetch("/api/enquire", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+        signal: controller.signal,
+      });
+
+      const data = await response.json();
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to send email notification.");
+      }
+      
+      setSubmitted(true);
+    } catch (err: any) {
+      console.error("Error submitting enquiry:", err);
+      if (err.name === 'AbortError') {
+        setError("The request timed out. Please check your internet connection and try again.");
+      } else {
+        setError(err.message || "Something went wrong while sending your enquiry. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+      setStatus(null);
+    }
+  };
+
+  const objectives = [
+    "Tell our story",
+    "Introduce our organisation",
+    "Celebrate our journey",
+    "Showcase our people and impact",
+    "Preserve our history",
+    "Other"
+  ];
+
+  const timings = [
+    "As soon as possible",
+    "Within 1–3 months",
+    "Within 3–6 months",
+    "Just exploring"
+  ];
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-charcoal/90 backdrop-blur-md"
+          />
+          
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="relative w-full max-w-2xl bg-aurora backdrop-blur-xl border border-white/10 rounded-none overflow-hidden max-h-[90vh] flex flex-col text-white shadow-2xl"
+          >
+            <button 
+              onClick={onClose}
+              className="absolute top-6 right-6 text-white hover:text-primary-orange transition-colors z-10"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="p-8 md:p-12 overflow-y-auto">
+              {!submitted ? (
+                <>
+                  <div className="mb-10">
+                    <h2 className="text-3xl md:text-4xl font-black tracking-tighter text-white mb-4 uppercase">
+                      START THE CONVERSATION.
+                    </h2>
+                    <p className="text-white/60 font-medium">
+                      Tell us about your organisation and the story you want to tell.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSubmit} className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">Full Name *</label>
+                        <input 
+                          required
+                          type="text" 
+                          className="w-full bg-white/5 border border-white/10 p-4 focus:ring-2 focus:ring-primary-orange outline-none transition-all text-white placeholder:text-white/20"
+                          placeholder="Your Name"
+                          value={formData.name}
+                          onChange={(e) => setFormData({...formData, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">Organisation *</label>
+                        <input 
+                          required
+                          type="text" 
+                          className="w-full bg-white/5 border border-white/10 p-4 focus:ring-2 focus:ring-primary-orange outline-none transition-all text-white placeholder:text-white/20"
+                          placeholder="Company Name"
+                          value={formData.organisation}
+                          onChange={(e) => setFormData({...formData, organisation: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">Email Address *</label>
+                        <input 
+                          required
+                          type="email" 
+                          className="w-full bg-white/5 border border-white/10 p-4 focus:ring-2 focus:ring-primary-orange outline-none transition-all text-white placeholder:text-white/20"
+                          placeholder="email@organisation.com"
+                          value={formData.email}
+                          onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">Phone / WhatsApp *</label>
+                        <input 
+                          required
+                          type="tel" 
+                          className="w-full bg-white/5 border border-white/10 p-4 focus:ring-2 focus:ring-primary-orange outline-none transition-all text-white placeholder:text-white/20"
+                          placeholder="+94 ..."
+                          value={formData.phone}
+                          onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">Tell us about your organisation *</label>
+                      <textarea 
+                        required
+                        className="w-full bg-white/5 border border-white/10 p-4 focus:ring-2 focus:ring-primary-orange outline-none transition-all min-h-[120px] text-white placeholder:text-white/20"
+                        placeholder="What do you do? What makes you unique?"
+                        value={formData.about}
+                        onChange={(e) => setFormData({...formData, about: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">What would you like the film to achieve?</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {objectives.map((obj) => (
+                          <button
+                            key={obj}
+                            type="button"
+                            onClick={() => setFormData({...formData, objective: obj})}
+                            className={`text-left p-4 text-xs font-bold transition-all border ${
+                              formData.objective === obj 
+                                ? "bg-primary-orange border-primary-orange text-white" 
+                                : "bg-white/5 border-white/10 text-white/60 hover:border-primary-orange/30"
+                            }`}
+                          >
+                            {obj}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">When are you hoping to create the film?</label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {timings.map((time) => (
+                          <button
+                            key={time}
+                            type="button"
+                            onClick={() => setFormData({...formData, timing: time})}
+                            className={`text-left p-4 text-xs font-bold transition-all border ${
+                              formData.timing === time 
+                                ? "bg-primary-orange border-primary-orange text-white" 
+                                : "bg-white/5 border-white/10 text-white/60 hover:border-primary-orange/30"
+                            }`}
+                          >
+                            {time}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black tracking-[0.2em] text-white/40 uppercase">Anything else you'd like us to know?</label>
+                      <textarea 
+                        className="w-full bg-white/5 border border-white/10 p-4 focus:ring-2 focus:ring-primary-orange outline-none transition-all min-h-[80px] text-white placeholder:text-white/20"
+                        placeholder="Additional details..."
+                        value={formData.additional}
+                        onChange={(e) => setFormData({...formData, additional: e.target.value})}
+                      />
+                    </div>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-white text-charcoal py-6 font-black tracking-[0.3em] uppercase transition-all hover:bg-primary-orange hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="animate-spin" size={24} />
+                          {status || "SENDING..."}
+                        </>
+                      ) : (
+                        "START THE CONVERSATION"
+                      )}
+                    </motion.button>
+                    {error && (
+                      <p className="text-red-500 text-xs font-bold text-center uppercase tracking-widest mt-4">
+                        {error}
+                      </p>
+                    )}
+                  </form>
+                </>
+              ) : (
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="py-20 text-center space-y-6"
+                >
+                  <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-primary-orange/10 text-primary-orange mb-6">
+                    <CheckCircle2 size={56} />
+                  </div>
+                  <h2 className="text-5xl font-black tracking-tighter text-white uppercase">THANK YOU.</h2>
+                  <p className="text-xl font-medium text-white/60 max-w-sm mx-auto">
+                    YOUR STORY STARTS HERE.
+                  </p>
+                  <p className="text-sm font-medium text-white/40 max-w-sm mx-auto">
+                    “Thank you for telling us a little about your organisation. We’ll be in touch to explore the story worth telling.”
+                  </p>
+                  <button 
+                    onClick={onClose}
+                    className="mt-12 bg-white text-charcoal px-10 py-4 text-xs font-black tracking-widest uppercase hover:bg-primary-orange hover:text-white transition-all"
+                  >
+                    BACK TO CROSSMEDIA
+                  </button>
+                </motion.div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+}

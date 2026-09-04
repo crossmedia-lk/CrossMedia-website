@@ -1,0 +1,6 @@
+{
+  "name": "CROSSMEDIA",
+  "description": "WE MAKE FILMS ABOUT ORGANISATIONS WORTH KNOWING. CrossMedia creates professionally produced Story Films for organisations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

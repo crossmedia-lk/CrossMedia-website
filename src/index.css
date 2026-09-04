@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-orange: #F47A38;
+  --color-light-orange: #FF9A5C;
+  --color-off-white: #F7F7F4;
+  --color-charcoal: #0A0A0A;
+  --color-soft-charcoal: #171717;
+
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply text-off-white antialiased overflow-x-hidden;
+    background: 
+      radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(30, 64, 175, 0.08) 0%, transparent 60%),
+      #030712;
+    background-attachment: fixed;
+  }
+}
+
+.glass-nav {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(16px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.border-text {
+  -webkit-text-stroke: 1px rgba(255, 255, 255, 0.08);
+  color: transparent;
+}
+
+.ai-gradient-text {
+  background: linear-gradient(135deg, #F47A38 0%, #FF9A5C 50%, #F47A38 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* UNIFIED ATMOSPHERIC BACKGROUNDS */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 1;
+    filter: drop-shadow(0 0 2px rgba(244, 122, 56, 0.5));
+  }
+  50% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 10px rgba(244, 122, 56, 0.8));
+  }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.bg-aurora {
+  position: relative;
+  overflow: hidden;
+  background: 
+    radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(30, 64, 175, 0.1) 0%, transparent 60%),
+    #030712;
+}
+
+.bg-aurora::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 70% 40%, rgba(52, 211, 153, 0.05) 0%, transparent 40%);
+  pointer-events: none;
+}

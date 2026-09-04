@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Enquiries: Allow anyone to create a new enquiry, but no reading or modifying from the client
+    match /enquiries/{enquiryId} {
+      allow create: if true;
+      allow read, update, delete: if false;
+    }
+
+    // Projects: Allow anyone to read, but only authorised users (admin) to modify
+    // Note: For now, we allow reading for everyone. Modification is handled elsewhere or restricted.
+    match /projects/{projectId} {
+      allow read: if true;
+      allow write: if false; 
+    }
+  }
+}
