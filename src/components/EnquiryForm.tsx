@@ -68,71 +68,72 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     setStatus("Connecting...");
     
     try {
-      setStatus("Processing...");
+      setStatus("Saving Enquiry...");
       
-      // 1. Create the promises but don't await them sequentially
-      const firestorePromise = addDoc(collection(db, "enquiries"), {
-        ...formData,
-        createdAt: serverTimestamp(),
-        source: "website_enquiry_form",
-        system_version: "v1.2.4"
-      });
+      // 1. Save to Firestore
+      try {
+        await addDoc(collection(db, "enquiries"), {
+          ...formData,
+          createdAt: serverTimestamp(),
+          source: "website_enquiry_form",
+          system_version: "v1.2.5"
+        });
+      } catch (dbErr: any) {
+        console.error("Database Error:", dbErr);
+        throw new Error(`Database Error: ${dbErr.message || "Could not save enquiry to our records."}`);
+      }
 
-      const emailPromise = (async () => {
-        try {
-          const response = await fetch("/api/enquire", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
-          });
+      // 2. Send via Resend
+      setStatus("Sending Email...");
+      try {
+        const response = await fetch("/api/enquire", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
 
-          if (response.ok) return "Resend Success";
-          
-          if (response.status === 404) {
-            // Fallback to EmailJS
-            const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-            const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-            const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-            if (serviceId && templateId && publicKey) {
-              await emailjs.send(serviceId, templateId, {
-                to_name: "CrossMedia Team",
-                from_name: formData.name,
-                organisation: formData.organisation,
-                email: formData.email,
-                phone: formData.phone,
-                about: formData.about,
-                objective: formData.objective,
-                timing: formData.timing,
-                additional: formData.additional || "None",
-                reply_to: formData.email,
-              }, publicKey);
-              return "EmailJS Success";
-            }
-          }
-          return "Email Skipped/Failed";
-        } catch (err) {
-          console.warn("Email delivery failed:", err);
-          return "Email Error";
+        if (response.ok) {
+          setSubmitted(true);
+          return;
         }
-      })();
+        
+        // If 404, we are on static hosting (like Firebase) - use EmailJS
+        if (response.status === 404) {
+          console.warn("Backend missing, using Direct Delivery (EmailJS)...");
+          const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+          const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+          const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
-      // 2. Race the core logic against a global timeout
-      // We prioritize the SUCCESS of the user experience
-      await Promise.race([
-        Promise.all([firestorePromise, emailPromise]),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("The request is taking longer than expected, but we are still processing it.")), 12000))
-      ]);
+          if (serviceId && templateId && publicKey) {
+            await emailjs.send(serviceId, templateId, {
+              to_name: "CrossMedia Team",
+              from_name: formData.name,
+              organisation: formData.organisation,
+              email: formData.email,
+              phone: formData.phone,
+              about: formData.about,
+              objective: formData.objective,
+              timing: formData.timing,
+              additional: formData.additional || "None",
+              reply_to: formData.email,
+            }, publicKey);
+            setSubmitted(true);
+            return;
+          } else {
+            throw new Error("No email service configured for this environment.");
+          }
+        }
+
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Email service returned an error.");
+      } catch (emailErr: any) {
+        console.error("Email Error:", emailErr);
+        throw new Error(`Email Error: ${emailErr.message || "Failed to send notification email."}`);
+      }
       
-      setSubmitted(true);
     } catch (err: any) {
       console.error("Submission Error:", err);
-      // If it's just a timeout, we still show success because the background promises are likely still running
-      if (err.message?.includes("taking longer")) {
-        setSubmitted(true);
-      } else {
-        setError(err.message || "Something went wrong. Please try again or contact us directly.");
-      }
+      setError(err.message || "Something went wrong. Please try again or contact us directly at crossmedia.ask@gmail.com");
     } finally {
       setLoading(false);
       setStatus(null);
