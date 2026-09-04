@@ -35,7 +35,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.7 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.8 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -84,63 +84,61 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
         IMPORTANT: When you are ready to provide the final assessment, wrap it in a clear delimiter or just provide it as the final message. The UI will detect the heading "YOUR STORY HAS SOMETHING TO SAY." to show the "TALK TO CROSSMEDIA" button.
       `;
 
-      // Fallback logic to find a working model in the user's region
+      // Fallback logic: Actually TEST models until one responds
       const modelConfigs = [
-        { model: "gemini-1.5-flash" },
-        { model: "gemini-1.5-flash", apiVersion: "v1beta" },
-        { model: "gemini-1.5-flash-latest" },
-        { model: "gemini-1.5-pro" },
-        { model: "gemini-pro" }
+        { model: "gemini-1.5-flash", apiVersion: "v1" },
+        { model: "gemini-1.5-flash-latest", apiVersion: "v1" },
+        { model: "gemini-1.5-pro", apiVersion: "v1" },
+        { model: "gemini-1.0-pro", apiVersion: "v1" },
+        { model: "gemini-1.5-flash", apiVersion: "v1beta" }
       ];
 
       let model = null;
+      let chat = null;
       let lastErr = null;
 
       for (const config of modelConfigs) {
         try {
-          const testModel = genAI.getGenerativeModel({ model: config.model }, config.apiVersion ? { apiVersion: config.apiVersion } : undefined);
-          model = testModel;
-          break; 
+          const testModel = genAI.getGenerativeModel({ model: config.model }, { apiVersion: config.apiVersion as any });
+          
+          const history = messages
+            .filter((_, i) => i > 0)
+            .map(m => ({
+              role: m.role,
+              parts: [{ text: m.text }],
+            }));
+
+          const testChat = testModel.startChat({
+            history,
+            generationConfig: { temperature: 0.7 },
+          });
+
+          // Test the "door" with the actual message
+          const prompt = messages.length <= 2 
+            ? `${systemInstruction}\n\nUser Information: ${userMessage}`
+            : userMessage;
+
+          const result = await testChat.sendMessage(prompt);
+          const responseText = result.response.text();
+          
+          if (responseText) {
+            setMessages([...newMessages, { role: "model", text: responseText }]);
+            
+            // Heuristic for assessment
+            if (responseText.includes("YOUR STORY HAS SOMETHING TO SAY.")) {
+              setAssessment(true);
+            }
+            
+            setLoading(false);
+            return; // EXIT ENTIRE FUNCTION ON SUCCESS
+          }
         } catch (err) {
+          console.warn(`Model ${config.model} failed:`, err);
           lastErr = err;
         }
       }
 
-      if (!model) throw lastErr || new Error("Could not initialize any Gemini model.");
-
-      // Gemini history usually needs to alternate User/Model and start with User.
-      // Since our first message is a Model greeting, we can either:
-      // 1. Omit the greeting from history (simplest)
-      // 2. Map it to something else
-      
-      const history = messages
-        .filter((_, i) => i > 0) // Skip the first model greeting for SDK compatibility
-        .map(m => ({
-          role: m.role,
-          parts: [{ text: m.text }],
-        }));
-
-      const chat = model.startChat({
-        history,
-        generationConfig: {
-          temperature: 0.7,
-        },
-      });
-
-      // Prepend the system instruction to the first real user message if it's the start
-      const prompt = messages.length <= 2 
-        ? `${systemInstruction}\n\nUser Information: ${userMessage}`
-        : userMessage;
-
-      const result = await chat.sendMessage(prompt);
-      const modelResponse = result.response.text();
-      
-      setMessages([...newMessages, { role: "model", text: modelResponse }]);
-
-      // Simple heuristic to detect final assessment
-      if (modelResponse.includes("YOUR STORY HAS SOMETHING TO SAY.")) {
-        setAssessment(true);
-      }
+      if (!model) throw lastErr || new Error("All Gemini models failed to respond in your region.");
     } catch (err: any) {
       console.error("Advisor error:", err);
       const errorMessage = err.message || "Unknown error";
