@@ -68,44 +68,62 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     setStatus("Connecting...");
     
     try {
-      setStatus("Sending...");
+      setStatus("Saving Enquiry...");
       
-      // 1. Save directly to Firestore
-      await addDoc(collection(db, "enquiries"), {
+      // 1. Save to Firestore (Primary Record)
+      // Set a timeout for Firestore just in case
+      const firestorePromise = addDoc(collection(db, "enquiries"), {
         ...formData,
         createdAt: serverTimestamp(),
-        source: "website_enquiry_form"
+        source: "website_enquiry_form",
+        system_version: "v1.2.1"
       });
 
-      // 2. Send email notification via EmailJS
-      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Request timed out. Please check your connection.")), 15000)
+      );
 
-      if (serviceId && templateId && publicKey) {
-        await emailjs.send(
-          serviceId,
-          templateId,
-          {
-            to_name: "CrossMedia Team",
-            from_name: formData.name,
-            organisation: formData.organisation,
-            email: formData.email,
-            phone: formData.phone,
-            about: formData.about,
-            objective: formData.objective,
-            timing: formData.timing,
-            additional: formData.additional || "None",
-            reply_to: formData.email,
-          },
-          publicKey
-        );
+      await Promise.race([firestorePromise, timeoutPromise]);
+
+      // 2. Send email notification via EmailJS (Secondary - Don't block success if it fails)
+      setStatus("Sending Email...");
+      try {
+        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+        if (serviceId && templateId && publicKey) {
+          // Use a non-blocking approach or a short timeout for EmailJS
+          await Promise.race([
+            emailjs.send(
+              serviceId,
+              templateId,
+              {
+                to_name: "CrossMedia Team",
+                from_name: formData.name,
+                organisation: formData.organisation,
+                email: formData.email,
+                phone: formData.phone,
+                about: formData.about,
+                objective: formData.objective,
+                timing: formData.timing,
+                additional: formData.additional || "None",
+                reply_to: formData.email,
+              },
+              publicKey
+            ),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Email delay")), 8000))
+          ]);
+        }
+      } catch (emailErr) {
+        console.warn("EmailJS failed or timed out, but data is saved in Firestore:", emailErr);
+        // We don't throw here because the enquiry is already saved in Firestore
       }
       
       setSubmitted(true);
     } catch (err: any) {
       console.error("Error submitting enquiry:", err);
-      setError("I'm sorry, I encountered an error while saving your enquiry. Please try again or contact us directly at crossmedia.ask@gmail.com");
+      setError(err.message || "I'm sorry, I encountered an error. Please try again or contact us directly at crossmedia.ask@gmail.com");
     } finally {
       setLoading(false);
       setStatus(null);
