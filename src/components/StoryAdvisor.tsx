@@ -38,7 +38,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.2.5 - Diagnostic Mode) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.2.6 - Safe Mode) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
@@ -129,6 +129,10 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       }
 
       if (!modelResponse) {
+        const errStr = String(lastErr);
+        if (errStr.includes("403") || errStr.includes("suspended") || errStr.includes("API_KEY_INVALID")) {
+          throw new Error("STORY_ADVISOR_SUSPENDED");
+        }
         throw lastErr || new Error("All Gemini models failed to respond.");
       }
       
@@ -139,8 +143,15 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       }
     } catch (err: any) {
       console.error("Advisor error:", err);
-      const errorMessage = err.message || "Unknown error";
-      setMessages([...newMessages, { role: "model", text: `DIAGNOSTIC ERROR: ${errorMessage}` }]);
+      let errorMessage = "I'm sorry, I'm having trouble connecting right now. Please try again in a moment.";
+      
+      if (err.message === "STORY_ADVISOR_SUSPENDED") {
+        errorMessage = "The Story Advisor is currently offline for maintenance. Please use the Enquiry form to contact the CrossMedia team directly!";
+      } else if (err.message?.includes("API_KEY_INVALID")) {
+        errorMessage = "System connection lost. Please try the Enquiry form instead.";
+      }
+      
+      setMessages([...newMessages, { role: "model", text: errorMessage }]);
     } finally {
       setLoading(false);
     }

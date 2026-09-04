@@ -68,72 +68,50 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     setStatus("Connecting...");
     
     try {
-      setStatus("Saving Enquiry...");
+      setStatus("Sending Enquiry...");
       
-      // 1. Save to Firestore
+      // 1. Try Firestore (Silent Fallback - don't block if it fails due to suspension)
       try {
         await addDoc(collection(db, "enquiries"), {
           ...formData,
           createdAt: serverTimestamp(),
           source: "website_enquiry_form",
-          system_version: "v1.2.5"
+          system_version: "v1.2.6-safe-mode"
         });
       } catch (dbErr: any) {
-        console.error("Database Error:", dbErr);
-        throw new Error(`Database Error: ${dbErr.message || "Could not save enquiry to our records."}`);
+        console.warn("Database suspended or unreachable, skipping save...", dbErr);
+        // We don't throw here, we prioritize the email
       }
 
-      // 2. Send via Resend
-      setStatus("Sending Email...");
-      try {
-        const response = await fetch("/api/enquire", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
-        });
+      // 2. Direct Delivery via EmailJS (Primary in Safe Mode)
+      // We skip the Resend backend check because it likely relies on the same suspended project infrastructure
+      setStatus("Direct Delivery...");
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
-        if (response.ok) {
-          setSubmitted(true);
-          return;
-        }
+      if (serviceId && templateId && publicKey) {
+        await emailjs.send(serviceId, templateId, {
+          to_name: "CrossMedia Team",
+          from_name: formData.name,
+          organisation: formData.organisation,
+          email: formData.email,
+          phone: formData.phone,
+          about: formData.about,
+          objective: formData.objective,
+          timing: formData.timing,
+          additional: formData.additional || "None",
+          reply_to: formData.email,
+        }, publicKey);
         
-        // If 404, we are on static hosting (like Firebase) - use EmailJS
-        if (response.status === 404) {
-          console.warn("Backend missing, using Direct Delivery (EmailJS)...");
-          const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-          const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-          const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-          if (serviceId && templateId && publicKey) {
-            await emailjs.send(serviceId, templateId, {
-              to_name: "CrossMedia Team",
-              from_name: formData.name,
-              organisation: formData.organisation,
-              email: formData.email,
-              phone: formData.phone,
-              about: formData.about,
-              objective: formData.objective,
-              timing: formData.timing,
-              additional: formData.additional || "None",
-              reply_to: formData.email,
-            }, publicKey);
-            setSubmitted(true);
-            return;
-          } else {
-            throw new Error("No email service configured for this environment.");
-          }
-        }
-
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Email service returned an error.");
-      } catch (emailErr: any) {
-        console.error("Email Error:", emailErr);
-        throw new Error(`Email Error: ${emailErr.message || "Failed to send notification email."}`);
+        setSubmitted(true);
+      } else {
+        throw new Error("Email service configuration not found. Please contact us at crossmedia.ask@gmail.com");
       }
       
     } catch (err: any) {
       console.error("Submission Error:", err);
-      setError(err.message || "Something went wrong. Please try again or contact us directly at crossmedia.ask@gmail.com");
+      setError(err.message || "I'm sorry, I encountered an error. Please contact us directly at crossmedia.ask@gmail.com while we resolve our system suspension.");
     } finally {
       setLoading(false);
       setStatus(null);
