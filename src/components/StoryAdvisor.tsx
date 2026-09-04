@@ -38,7 +38,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.0 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.1.1 - ${IS_KEY_PRESENT ? `Ready [${KEY_PREFIX}...${KEY_SUFFIX}]` : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
