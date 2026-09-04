@@ -4,7 +4,9 @@ import { X, Send, Loader2, Sparkles, User, MessageSquare } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 // Initialize Gemini client-side for static hosting support
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY || "");
+const apiKey = import.meta.env.VITE_GEMINI_API_KEY || "";
+const genAI = new GoogleGenerativeAI(apiKey);
+const IS_KEY_PRESENT = apiKey.length > 5;
 
 interface Message {
   role: "user" | "model";
@@ -33,7 +35,7 @@ export default function StoryAdvisor({ isOpen, onClose, onTalkToCrossMedia }: St
       setMessages([
         {
           role: "model",
-          text: "Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.2)\n\nWhat does your organisation do, and who does it serve?"
+          text: `Every organisation has a story. Tell me a little about yours and I'll help you discover what makes it worth telling. (v1.0.3 - ${IS_KEY_PRESENT ? "System Ready" : "Config Missing"}) \n\nWhat does your organisation do, and who does it serve?`
         }
       ]);
     }
