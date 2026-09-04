@@ -1,9 +1,10 @@
 
 import { motion, AnimatePresence } from "motion/react";
 import { useState, FormEvent, useEffect } from "react";
-import { X, CheckCircle2, Loader2 } from "lucide-react";
+import { X, CheckCircle2, Loader2, Send, AlertCircle } from "lucide-react";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import emailjs from "@emailjs/browser";
 
 interface EnquiryFormProps {
   isOpen: boolean;
@@ -69,12 +70,37 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     try {
       setStatus("Sending...");
       
-      // Save directly to Firestore
+      // 1. Save directly to Firestore
       await addDoc(collection(db, "enquiries"), {
         ...formData,
         createdAt: serverTimestamp(),
         source: "website_enquiry_form"
       });
+
+      // 2. Send email notification via EmailJS
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+      if (serviceId && templateId && publicKey) {
+        await emailjs.send(
+          serviceId,
+          templateId,
+          {
+            to_name: "CrossMedia Team",
+            from_name: formData.name,
+            organisation: formData.organisation,
+            email: formData.email,
+            phone: formData.phone,
+            about: formData.about,
+            objective: formData.objective,
+            timing: formData.timing,
+            additional: formData.additional || "None",
+            reply_to: formData.email,
+          },
+          publicKey
+        );
+      }
       
       setSubmitted(true);
     } catch (err: any) {
