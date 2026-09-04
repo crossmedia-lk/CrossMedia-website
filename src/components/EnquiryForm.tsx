@@ -70,32 +70,46 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
     try {
       setStatus("Saving Enquiry...");
       
-      // 1. Save to Firestore (Primary Record)
-      // Set a timeout for Firestore just in case
-      const firestorePromise = addDoc(collection(db, "enquiries"), {
+      // 1. Save to Firestore (Record for safety)
+      await addDoc(collection(db, "enquiries"), {
         ...formData,
         createdAt: serverTimestamp(),
         source: "website_enquiry_form",
-        system_version: "v1.2.1"
+        system_version: "v1.2.2"
       });
 
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Request timed out. Please check your connection.")), 15000)
-      );
-
-      await Promise.race([firestorePromise, timeoutPromise]);
-
-      // 2. Send email notification via EmailJS (Secondary - Don't block success if it fails)
-      setStatus("Sending Email...");
+      // 2. Send via Resend (Server-side API)
+      setStatus("Sending via Resend...");
       try {
-        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+        const response = await fetch("/api/enquire", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
 
-        if (serviceId && templateId && publicKey) {
-          // Use a non-blocking approach or a short timeout for EmailJS
-          await Promise.race([
-            emailjs.send(
+        if (response.ok) {
+          setSubmitted(true);
+          return;
+        }
+        
+        // If we get a 404, it means the backend is missing (Static Hosting)
+        if (response.status === 404) {
+          console.warn("Backend not found, falling back to client-side delivery...");
+          throw new Error("BACKEND_MISSING");
+        }
+
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to send email enquiry.");
+      } catch (resendErr: any) {
+        if (resendErr.message === "BACKEND_MISSING" || resendErr.name === "TypeError") {
+          // Fallback to EmailJS (Client-side)
+          setStatus("Direct Delivery...");
+          const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+          const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+          const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+          if (serviceId && templateId && publicKey) {
+            await emailjs.send(
               serviceId,
               templateId,
               {
@@ -111,13 +125,14 @@ export default function EnquiryForm({ isOpen, onClose, initialData }: EnquiryFor
                 reply_to: formData.email,
               },
               publicKey
-            ),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Email delay")), 8000))
-          ]);
+            );
+          } else {
+            // If even EmailJS is missing, we consider Firestore save enough for now
+            console.warn("No email services configured.");
+          }
+        } else {
+          throw resendErr;
         }
-      } catch (emailErr) {
-        console.warn("EmailJS failed or timed out, but data is saved in Firestore:", emailErr);
-        // We don't throw here because the enquiry is already saved in Firestore
       }
       
       setSubmitted(true);
